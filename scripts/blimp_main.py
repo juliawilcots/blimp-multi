@@ -1,46 +1,66 @@
-# --- VERSION 0.1.7 updated 20230517 by NTA ---
-
+# --- VERSION 0.2.0 updated 20231026 by JKW ---
 
 import os
 import pandas as pd
-from pathlib import Path
+
 #import make_pdf as mk_pdf
 
 output_sep = '------------------------'
 
 print(output_sep)
 
-proj = input("Enter name of project:")
+# output folders will be named with this stem
+output_name = input("Enter a name for this blimp run: ") # e.g., the date, '2018_runs', etc.
+multi_session = input("How many separate analyses would you like to run? (integer number)\n")
+n_sessions = int(multi_session)
 
-if os.path.isdir(Path.cwd().parents[0] / 'proj' / proj):
-	dir_path = Path.cwd().parents[0] / 'proj' / proj
+######### Let user upload multiple sessions and analyze them separately.
+data = {}
+i = 0 # at least one session
+while i < n_sessions:
+	session_name = input("Enter a name for session/analysis %i: " %i)
+	session_dir = input("Drag directory containing all data folders for analysis %i into terminal.\n" %i)
+	data[session_name] = session_dir
+	i+=1
 
+# don't use project stuff anymore
+# proj = input("Enter name of project:")
+# if os.path.isdir(Path.cwd().parents[0] / 'proj' / proj):
+# 	dir_path = Path.cwd().parents[0] / 'proj' / proj
+# else:
+# 	print('Project name does not exist in directory. Try again.')
+# 	exit()
 
-else:
-	print('Project name does not exist in directory. Try again.')
-	exit()
-
+####### Julia: need to go to blimp_supp soon.
 # My hacky way of telling the blimp_supp module what the name of the project is...
-with open('proj.txt', 'w') as f:
-    f.write(proj)
+# with open('proj.txt', 'w') as f:
+#     f.write(proj)
 
+
+####### 
+
+
+
+# os.chdir(dir_path)
+
+# User drags params file into terminal to load it.
+def define_params_location():
+	'''
+	user defines where params file is located
+	'''
+	params_dir = input("Drag params.xlsx file into terminal, then press enter:\n")
+	return params_dir
+
+params = define_params_location()
+
+# why does this import happen so late?
 import blimp_supp as b_s
 
-os.chdir(dir_path)
-
-##################### WORKING HERE IN params_testing.py
-# Directory where 'params' file is stored
-params_loc = input("Enter path to params file from %s (omit first /):" %Path.cwd())
-params_dir = Path.cwd() / params_loc
-# check that params file is actually there
-
-#####################
-
 # Create results and plot directories if they do not already exist
-
+######## TO DO: create different folders for each session/analysis
 rd_path = Path.cwd() / 'raw_data'
 results_path = Path.cwd() / ('results') # do the parentheses do anything? I don't think so. 
-plot_path = Path.cwd() / ('plots')i
+plot_path = Path.cwd() / ('plots')
 
 if os.path.isdir(results_path):
 	pass 
@@ -56,12 +76,21 @@ d47_crunch_fmt = []
 batch_data_list = []
 fold_count = 0
 
-# Remove analyses first (based on params file)
-
-df_rmv = pd.read_excel('params.xlsx', 'Remove')
+# Find which analyses to remove analyses (based on params file)
+# df_rmv = pd.read_excel('params.xlsx', 'Remove')
+df_rmv = pd.read_excel(params, 'Remove') # new syntax with params file found in separate dir now.
 manual_rmv = list(df_rmv.UID)
 run_type = 'clumped'
-print(output_sep)
+print(output_sep) #------------------------#
+
+
+################################# ADD FOLDER SYSTEM HERE
+# User tells blimp which sessions to run
+# Then runs the sessions independently
+# Probably move most of the code below into a function and call that function however many times as needed
+# Will probably have to adjust the results and plots folders too.
+################################# DONE FOR NOW
+
 if os.path.isdir(rd_path): # If there is a raw data folder...
 	print('Crunching folders: ')
 	
