@@ -1,4 +1,4 @@
-# --- VERSION 0.1.7 updated 20230517 by NTA ---
+# --- VERSION 0.2.0 updated 20231101 by JKW ---
 
 import pandas as pd
 import numpy as np
@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import time
 
-
+# No longer using proj
 # get name of project
-with open('proj.txt') as file:
-    proj = file.read()
-os.remove('proj.txt')
+# with open('proj.txt') as file:
+#     proj = file.read()
+# os.remove('proj.txt')
 
 # ---- INITIALIZE VARIABLES ----
 lil_del_dict_eth3 = []
@@ -43,12 +43,32 @@ plt.rcParams['ytick.direction'] = 'in'
 
 # ---- READ IN PARAMETERS ('params.xlsx') ----
 
-xls = pd.ExcelFile(Path.cwd().parents[0] / 'proj' / proj / 'params.xlsx')
-df_anc = pd.read_excel(xls, 'Anchors', index_col = 'Anchor')
-df_const = pd.read_excel(xls, 'Constants', index_col = 'Name')
-df_threshold = pd.read_excel(xls, 'Thresholds', index_col = 'Type')
-df_rnm = pd.read_excel(xls, 'Rename_by_UID')
+# User drags params file into terminal to load it.
+def define_params_location():
+	'''
+	user defines where params file is located
+	'''
+	params_dir = input("Drag params.xlsx file into terminal, then press enter:\n")
+	return params_dir
 
+params = define_params_location()
+
+def import_params():
+	'''
+	Get data from each sheet of the params excel file
+	'''
+	df_rmv = pd.read_excel(params, 'Remove')
+	df_anc = pd.read_excel(params, 'Anchors', index_col = 'Anchor')
+	df_const = pd.read_excel(params, 'Constants', index_col = 'Name')
+	df_threshold = pd.read_excel(params, 'Thresholds', index_col = 'Type')
+	df_rnm = pd.read_excel(params, 'Rename_by_UID')
+	df_meta = pd.read_excel(params, 'Metadata')
+
+	return df_rmv, df_anc, df_const, df_threshold, df_rnm, df_meta
+
+df_rmv, df_anc, df_const, df_threshold, df_rnm = import_params()
+
+manual_rmv = list(df_rmv.UID)
 long_term_d47_SD = df_threshold['Value'].loc['long_term_SD']
 num_SD = df_threshold['Value'].loc['num_SD']
 SD_thresh = long_term_d47_SD*num_SD # pulled from parameters file
@@ -62,6 +82,7 @@ arag_a18O = df_const['Value'].loc['arag_a18O']
 dolo_a18O = df_const['Value'].loc['dolo_a18O']
 
 Nominal_D47 = df_anc.to_dict()['D47'] # Sets anchor values for D47crunch as dictionary {Anchor: value}
+
 
 
 # ---- DEFINE FUNCTIONS USED TO CALCULATE D47/T/D18Ow ----
@@ -130,8 +151,6 @@ def make_water_V05(D47_T):
 	thousandlna_A21 = ((2.73*1e6)*(D47_T+ 273.15)**-2)-0.26
 	return np.exp((thousandlna_A21/1000))
 	
-		
-
 def thousandlna(mineral):
 		'''Calculates 18O acid fractination factor to convert CO2 d18O to mineral d18O'''
 		if mineral == 'calcite' or mineral == 'Calcite':
@@ -162,23 +181,6 @@ def calc_residual(df_analy):
 	return pct_evolved_carb, resid
 
 
-
-
-
-
-# ---- Define helper functions ----
-
-# import fnmatch
-# def find_file(pattern, path):  # DOESNT WORK YET -- MIGHT BE MORE EFFICIENT
-# 	result = []
-# 	for files in os.walk(path):
-# 		print(files)
-# 		if isinstance(files, str):
-# 			print(files)
-# 			if fnmatch.fnmatch(files, pattern):
-# 				print('found')
-# 				result.append(os.path.join(root, files))
-# 	return result
 
 # ---- READ AND CORRECT DATA ----
 
@@ -434,7 +436,7 @@ def run_D47crunch(run_type, raw_deltas_file):
 	results_path = Path.cwd() / 'results'
 
 	#xls = pd.ExcelFile(Path.cwd() / 'params.xlsx')
-	df_anc = pd.read_excel(xls, 'Anchors', index_col = 'Anchor')
+	# df_anc = pd.read_excel(xls, 'Anchors', index_col = 'Anchor')
 	Nominal_D47 = df_anc.to_dict()['D47'] # Sets anchor values for D47crunch as dictionary {Anchor: value}
 
 
@@ -494,25 +496,11 @@ def run_D47crunch(run_type, raw_deltas_file):
 			'd49':'float64', 'd13C_VPDB':'float64', 'd18O_VSMOW':'float64', 'D47raw':'float64', 'D48raw':'float64',
        		'D49raw':'float64', 'D47':'float64'}) #recast types appropriately (all str by default)
 
-		df_rmv = pd.read_excel('params.xlsx', 'Remove')
-		manual_rmv = list(df_rmv.UID)
-		manual_rmv_reason = list(df_rmv.Notes)
+		# df_rmv = pd.read_excel('params.xlsx', 'Remove')
+		# manual_rmv = list(df_rmv.UID)
+		# manual_rmv_reason = list(df_rmv.Notes)
 
-		#Create a little dictionary to store info about the project
-		#NOAH -- makes this smarter so will accept other anchors dynamically
-		# summ_dict = {'n_sessions':n_sess, 'n_samples':n_samp, 'n_analyses':n_anal,
-		# 'Nominal_D47_ETH-1':data.Nominal_D47['ETH-1'], 'Nominal_D47_ETH-2':data.Nominal_D47['ETH-2'],
-		# 'Nominal_D47_ETH-3':data.Nominal_D47['ETH-3'], 'Nominal_D47_ETH-4':data.Nominal_D47['ETH-4'],
-		# 'Nominal_D47_IAEA-C2':data.Nominal_D47['IAEA-C2'], 'Nominal_D47_MERCK':data.Nominal_D47['MERCK'],
-		# 'Reprod_d13C': rpt_d13C, 'Reprod_d18O':rpt_d18O, 'Reprod_D47':repeatability_all, 'Long_term_SD_threshold':long_term_d47_SD, 
-		# 'Num_SD_threshold':num_SD, 'Bad_cycles_threshold':bad_count_thresh, 'Transducer_pressure_threshold': transducer_pressure_thresh,
-		# 'Balance_high_threshold':balance_high,'Balance_low_threshold':balance_low, 'Manually_removed':manual_rmv, 'Manually_removed_reason': manual_rmv_reason}
-
-		# df_prj_summ = pd.DataFrame([summ_dict], index = [0])
-		# # df_prj_summ['Manually_removed'] = df_rmv['UID']
-		# # df_prj_summ['Manually_removed_reason'] = df_rmv['Notes']
-		# df_prj_summ.to_csv(Path.cwd()/ 'results' / 'project_info.csv', index = False)	
-
+	
 		print('Anchors are ', data.Nominal_D47)	# list anchors used and their nominal D47
 
 		print(output_sep)
@@ -578,10 +566,12 @@ def add_metadata(dir_path, rptability, batch_data_list, df, df_anal):
 	INPUT: 
 	OUTPUT:
 	'''	
-	file_meta = Path.cwd() / 'params.xlsx'
-	if os.path.exists(file_meta):
-		df_meta = pd.read_excel(file_meta, 'Metadata')
-		df = df.merge(df_meta, how = 'left')
+	# file_meta = Path.cwd() / 'params.xlsx'
+	# if os.path.exists(file_meta):
+	# 	df_meta = pd.read_excel(file_meta, 'Metadata')
+
+	# df_meta from params import at top of script
+	df = df.merge(df_meta, how = 'left')
 
 	def calc_meas_95(N):
 		return rptability/np.sqrt(N)
@@ -791,12 +781,12 @@ def add_metadata(dir_path, rptability, batch_data_list, df, df_anal):
 
 def add_metadata_std():
 
-	file_meta = Path.cwd() / 'params.xlsx'
+	# file_meta = Path.cwd() / 'params.xlsx'
 	df_anal = pd.read_csv(Path.cwd() / 'results' / f'analyses_bulk_{proj}.csv')
 
-	if os.path.exists(file_meta):
-		df_meta = pd.read_excel(file_meta, 'Metadata')
-		df_anal= df_anal.merge(df_meta, how = 'left')	
+	# if os.path.exists(file_meta):
+	# 	df_meta = pd.read_excel(file_meta, 'Metadata')
+	df_anal= df_anal.merge(df_meta, how = 'left')	
 
 	if 'Mineralogy' in df_anal.columns:
 		df_anal['d18O_VPDB_mineral'] = round(((df_anal['d18O_VSMOW'] - list(map(thousandlna, df_anal['Mineralogy']))) - 30.92)/1.03092, 1) # convert from CO2 d18O (VSMOW) to mineral d18O (VPDB)

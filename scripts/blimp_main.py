@@ -15,12 +15,23 @@ multi_session = input("How many separate analyses would you like to run? (intege
 n_sessions = int(multi_session)
 
 ######### Let user upload multiple sessions and analyze them separately.
-data = {}
+# data structure should be something like:
+
+'''
+data = {'first_set': dir_with_first_set_of_runs,
+		'second_set': dir_with_second_set_of_runs,
+		'third_set': dir_with_third_set_of_runs}
+
+and in each dir_with_nth_set_of_runs, you should have your data folders for
+all the runs from that set that you want to analyze together.
+'''
+
+datasets = {}
 i = 0 # at least one session
 while i < n_sessions:
 	session_name = input("Enter a name for session/analysis %i: " %i)
 	session_dir = input("Drag directory containing all data folders for analysis %i into terminal.\n" %i)
-	data[session_name] = session_dir
+	datasets[session_name] = session_dir
 	i+=1
 
 # don't use project stuff anymore
@@ -36,28 +47,28 @@ while i < n_sessions:
 # with open('proj.txt', 'w') as f:
 #     f.write(proj)
 
-
-####### 
-
-
-
 # os.chdir(dir_path)
 
 # User drags params file into terminal to load it.
-def define_params_location():
-	'''
-	user defines where params file is located
-	'''
-	params_dir = input("Drag params.xlsx file into terminal, then press enter:\n")
-	return params_dir
+# def define_params_location():
+# 	'''
+# 	user defines where params file is located
+# 	'''
+# 	params_dir = input("Drag params.xlsx file into terminal, then press enter:\n")
+# 	return params_dir
 
-params = define_params_location()
+# params = define_params_location()
 
 # why does this import happen so late?
 import blimp_supp as b_s
 
+
+
 # Create results and plot directories if they do not already exist
 ######## TO DO: create different folders for each session/analysis
+# should be something like:
+# for set in datasets:
+# 	-> create folders
 rd_path = Path.cwd() / 'raw_data'
 results_path = Path.cwd() / ('results') # do the parentheses do anything? I don't think so. 
 plot_path = Path.cwd() / ('plots')
@@ -78,8 +89,12 @@ fold_count = 0
 
 # Find which analyses to remove analyses (based on params file)
 # df_rmv = pd.read_excel('params.xlsx', 'Remove')
-df_rmv = pd.read_excel(params, 'Remove') # new syntax with params file found in separate dir now.
-manual_rmv = list(df_rmv.UID)
+# df_rmv = pd.read_excel(params, 'Remove') # new syntax with params file found in separate dir now.
+# manual_rmv = list(df_rmv.UID)
+
+# Now do this in blimp_supp
+manual_rmv = find_analyses_to_remove()
+
 run_type = 'clumped'
 print(output_sep) #------------------------#
 
