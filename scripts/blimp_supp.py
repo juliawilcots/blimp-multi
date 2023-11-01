@@ -7,12 +7,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 import time
-
-# No longer using proj
-# get name of project
-# with open('proj.txt') as file:
-#     proj = file.read()
-# os.remove('proj.txt')
+import json
 
 # ---- INITIALIZE VARIABLES ----
 lil_del_dict_eth3 = []
@@ -43,15 +38,27 @@ plt.rcParams['ytick.direction'] = 'in'
 
 # ---- READ IN PARAMETERS ('params.xlsx') ----
 
-# User drags params file into terminal to load it.
-def define_params_location():
-	'''
-	user defines where params file is located
-	'''
-	params_dir = input("Drag params.xlsx file into terminal, then press enter:\n")
-	return params_dir
+# Read information from json file
+json_file = input("Drag your .json file here (again), then press enter:\n")
 
-params = define_params_location()
+# json file should have fields: "blimp_run_name", "sessions", "params"
+with open(json_file.strip(' ')) as f:
+    blimp_data = json.load(f)
+    # f.close()
+
+params = blimp_data["params"] # will be the path to a params.xlsx file
+output_name = blimp_data["blimp_run_name"]
+output_path = blimp_data["output_path"] 
+
+# # User drags params file into terminal to load it.
+# def define_params_location():
+# 	'''
+# 	user defines where params file is located
+# 	'''
+# 	params_dir = input("Drag params.xlsx file into terminal, then press enter.\n")
+# 	return params_dir.strip(' ') # there is sometimes an extra space at the end of the filepath
+
+# params = define_params_location()
 
 def import_params():
 	'''
@@ -63,10 +70,11 @@ def import_params():
 	df_threshold = pd.read_excel(params, 'Thresholds', index_col = 'Type')
 	df_rnm = pd.read_excel(params, 'Rename_by_UID')
 	df_meta = pd.read_excel(params, 'Metadata')
+	df_names = pd.read_excel(params, 'Names_to_change')
 
-	return df_rmv, df_anc, df_const, df_threshold, df_rnm, df_meta
+	return df_rmv, df_anc, df_const, df_threshold, df_rnm, df_meta, df_names
 
-df_rmv, df_anc, df_const, df_threshold, df_rnm = import_params()
+df_rmv, df_anc, df_const, df_threshold, df_rnm, df_meta, df_names = import_params()
 
 manual_rmv = list(df_rmv.UID)
 long_term_d47_SD = df_threshold['Value'].loc['long_term_SD']
@@ -389,14 +397,14 @@ def read_Nu_data(data_file, file_number, current_sample, folder_name, run_type):
 		rmv_meta_list.append(batch_data_list)
 		return None, None
 
-def fix_names(df):
+def fix_names(df, results_path):
 	'''
 	PURPOSE: Changes names of standards and samples to uniform entries based on conversion spreadsheet
 	INPUT: Pandas Dataframe of little deltas, names_to_change tab in params.csv
 	OUTPUT: Fully corrected, accurately named little deltas (raw_deltas.csv)'''
 	
 	df['Sample'] = df['Sample'].str.strip() # strip whitespace
-	df_new = pd.read_excel(xls, 'Names_to_change')
+	df_new = df_names
 	
 	# rename based on name (names_to_change; i.e. EHT-1 --> ETH-1)
 	for i in range(len(df_new)):
@@ -419,11 +427,14 @@ def fix_names(df):
 	change_anchor_name('IAEA-C2', 'IAEA-C1', 15, 18, 10, 13)
 	change_anchor_name('IAEA-C1', 'IAEA-C2', 3, 6, -2, 1)
 
-	dir_path_fixed = Path.cwd() / 'results' / f'raw_deltas_{proj}.csv' # write new names to file
-	df.to_csv(dir_path_fixed, index = False)
+	# dir_path_fixed = Path.cwd() / 'results' / f'raw_deltas_{proj}.csv' # write new names to file
+	results_raw_deltas = results_path + '/raw_deltas.csv' 
+	# df.to_csv(dir_path_fixed, index = False)
+	df.to_csv(results_raw_deltas, index=False)
 
+	return raw_deltas
 
-def run_D47crunch(run_type, raw_deltas_file):
+def run_D47crunch(run_type, raw_deltas_file, results_path):
 	''' 
 	PURPOSE: Calculate D47, d13C, d18O, using Mathieu Daeron's 'D47_crunch' package (https://github.com/mdaeron/D47crunch)	
 	INPUT: Fully corrected little deltas ('raw_deltas.csv')
@@ -433,7 +444,7 @@ def run_D47crunch(run_type, raw_deltas_file):
 
 	print('Sent to D47crunch. Processing...')
 	
-	results_path = Path.cwd() / 'results'
+	# results_path = Path.cwd() / 'results'
 
 	#xls = pd.ExcelFile(Path.cwd() / 'params.xlsx')
 	# df_anc = pd.read_excel(xls, 'Anchors', index_col = 'Anchor')
@@ -477,7 +488,7 @@ def run_D47crunch(run_type, raw_deltas_file):
 		rpt_d18O = data.repeatability['r_d18O_VSMOW']
 
 		# display and save session info as csv
-		data.table_of_sessions(verbose = True, print_out = True, dir = results_path, filename = f'sessions_{proj}.csv', save_to_file = True)
+		data.table_of_sessions(verbose = True, print_out = True, dir = results_path, filename = 'sessions.csv', save_to_file = True)
 		
 		sam = data.table_of_samples(verbose = True, print_out = True, save_to_file = False, output = 'raw')
 		analy = data.table_of_analyses(print_out = False, save_to_file = False, output = 'raw')
@@ -511,19 +522,18 @@ def run_D47crunch(run_type, raw_deltas_file):
 
 		# For reps that failed, make csv with all parameters they could have failed on
 		df = pd.DataFrame(rmv_meta_list, columns = ['UID', 'Transducer_Pressure', 'Sample_Weight', 'NuCarb_temp', 'Pumpover_Pressure', 'Initial_Sam', 'Balance', 'Vial_Location', 'd13C_SE (Nu)', 'd18O_SE (Nu)', 'D47_SE (Nu)', 'd47_pre_SE', 'd47_post_SE', 'Bad_count', 'Sample'])
-		save_path =  Path.cwd() / 'results' / f'rmv_analyses_{proj}.csv'
+		save_path =  results_path + '/rmv_analyses.csv'
 		df.to_csv(save_path, index = False)
-
 
 		return df_sam, df_analy, repeatability_all
 
 	# If it's a standard run, use Noah's reworking of Mathieu's code
 	elif run_type == 'standard':
-		table_of_analyses_std(data, print_out = False, dir = results_path, save_to_file = True, filename = f'analyses_bulk_{proj}.csv')
+		table_of_analyses_std(data, print_out = False, dir = results_path, save_to_file = True, filename = 'analyses_bulk.csv')
 
 		return np.nan, np.nan, np.nan
 
-def table_of_analyses_std(data, dir = 'results', filename = f'analyses_{proj}.csv', save_to_file = True, print_out = True):
+def table_of_analyses_std(data, dir = 'results', filename = 'analyses.csv', save_to_file = True, print_out = True):
         '''
         Print out an/or save to disk a table of analyses. Modified by NTA to just print out 'standard' (d13C and d18O) data
 
@@ -535,6 +545,7 @@ def table_of_analyses_std(data, dir = 'results', filename = f'analyses_{proj}.cs
         + `print_out`: whether to print out the table
         '''
         from D47crunch import make_csv
+
         out = [['UID','Session','Sample']]
        
         out[-1] += ['d13Cwg_VPDB','d18Owg_VSMOW','d45','d46','d47','d48','d49','d13C_VPDB','d18O_VSMOW']
@@ -772,32 +783,34 @@ def add_metadata(dir_path, rptability, batch_data_list, df, df_anal):
 
 	df = df[col_order_list]
 
-	df.to_csv(Path.cwd() / 'results' / f'summary_{proj}.csv', index = False)
+	# df.to_csv(Path.cwd() / 'results' / f'summary_{proj}.csv', index = False)
+	df.to_csv(dir_path + '/summary.csv', index=False)
 
-	df_anal.to_csv(Path.cwd() / 'results' / f'analyses_{proj}.csv', index = False)
-	to_earthchem(df_anal)
+	# df_anal.to_csv(Path.cwd() / 'results' / f'analyses_{proj}.csv', index = False)
+	df_anal.to_csv(dir_path + '/analyses.csv', index=False)
+	to_earthchem(df_anal, dir_path)
 
-	os.chdir(dir_path)
+	os.chdir(dir_path) # probably don't have to do this anymore!!
 
-def add_metadata_std():
+# def add_metadata_std():
 
-	# file_meta = Path.cwd() / 'params.xlsx'
-	df_anal = pd.read_csv(Path.cwd() / 'results' / f'analyses_bulk_{proj}.csv')
+# 	# file_meta = Path.cwd() / 'params.xlsx'
+# 	df_anal = pd.read_csv(Path.cwd() / 'results' / f'analyses_bulk_{proj}.csv')
 
-	# if os.path.exists(file_meta):
-	# 	df_meta = pd.read_excel(file_meta, 'Metadata')
-	df_anal= df_anal.merge(df_meta, how = 'left')	
+# 	# if os.path.exists(file_meta):
+# 	# 	df_meta = pd.read_excel(file_meta, 'Metadata')
+# 	df_anal= df_anal.merge(df_meta, how = 'left')	
 
-	if 'Mineralogy' in df_anal.columns:
-		df_anal['d18O_VPDB_mineral'] = round(((df_anal['d18O_VSMOW'] - list(map(thousandlna, df_anal['Mineralogy']))) - 30.92)/1.03092, 1) # convert from CO2 d18O (VSMOW) to mineral d18O (VPDB)
+# 	if 'Mineralogy' in df_anal.columns:
+# 		df_anal['d18O_VPDB_mineral'] = round(((df_anal['d18O_VSMOW'] - list(map(thousandlna, df_anal['Mineralogy']))) - 30.92)/1.03092, 1) # convert from CO2 d18O (VSMOW) to mineral d18O (VPDB)
 
-	else:
-		df_anal['d18O_VPDB_mineral'] = round(((df_anal['d18O_VSMOW'] - 1000*np.log(1.00871) - 30.92)/1.03092), 1) # convert from CO2 d18O (VSMOW) to calcite d18O (VPDB) if mineralogy not specified
+# 	else:
+# 		df_anal['d18O_VPDB_mineral'] = round(((df_anal['d18O_VSMOW'] - 1000*np.log(1.00871) - 30.92)/1.03092), 1) # convert from CO2 d18O (VSMOW) to calcite d18O (VPDB) if mineralogy not specified
 
-	df_anal.to_csv(Path.cwd() / 'results' / f'analyses_bulk_{proj}.csv', index = False)
+# 	df_anal.to_csv(Path.cwd() / 'results' / f'analyses_bulk_{proj}.csv', index = False)
 	
 
-def to_earthchem(df_a):
+def to_earthchem(df_a, results_path):
 	''' Formats analyses in format used for the EarthChem database'''
 
 	df_ec = pd.DataFrame()
@@ -871,7 +884,8 @@ def to_earthchem(df_a):
 	df_ec['BRD47rfac_P_newAFF'] = df_a['D47']
 	df_ec['d18Oac'] = 'NA' #df_a['d18O_mineral_VPDB']
 
-	df_ec.to_csv(Path.cwd() / 'results' / f'analyses_earthchem_fmt_{proj}.csv', index = False)
+	# df_ec.to_csv(Path.cwd() / 'results' / f'analyses_earthchem_fmt_{proj}.csv', index = False)
+	df_ec.to_csv(results_path + '/analyses_earthchem_fmt.csv',index=False)
 
 # ---- MAKE PLOTS ----
 
@@ -1004,10 +1018,13 @@ def plot_ETH_D47(repeatability_all, df):
 	plt.savefig(Path.cwd().parents[0] / 'plots' / 'd18O.png')
 	plt.close()
 
-def cdv_plots(df):
+def cdv_plots(df,results_path):
 
-	file = Path.cwd().parents[0] / 'results' / f'rmv_analyses_{proj}.csv'
-	df_rmv = pd.read_csv(file, encoding = 'latin1')
+	# file = Path.cwd().parents[0] / 'results' / f'rmv_analyses_{proj}.csv'
+	# df_rmv = pd.read_csv(file, encoding = 'latin1') # sure we want to be resetting???
+
+	filepath = results_path + '/rmv_analyses.csv'
+	df_rmv = pd.read_csv(filepath, encoding='latin1')
 
 	plt.figure(figsize=(12,9))
 	use_baseline = 'n'
@@ -1120,7 +1137,7 @@ def d47_D47_plot(df):
 	plt.savefig(Path.cwd().parents[0] / 'plots' / 'd47_D47.png')
 	plt.close()
 
-def interactive_plots(df):
+def interactive_plots(df,plot_path):
 
 	try:
 		from bokeh.io import output_file
@@ -1137,7 +1154,8 @@ def interactive_plots(df):
 		return
 
 
-	output_file(filename=Path.cwd().parents[0] / 'plots' / f'D47_d47_interactive_{proj}.html', title="D47_d47_interactive")
+	# output_file(filename=Path.cwd().parents[0] / 'plots' / f'D47_d47_interactive_{proj}.html', title="D47_d47_interactive")
+	output_file(filename=plot_path + '/D47_d47_interactive.html', title="D47_d47_interactive")
 
 	df_anchor = df.loc[(df['Sample'] == 'ETH-1') | (df['Sample'] == 'ETH-2') | 
 				(df['Sample'] == 'ETH-3') | (df['Sample'] == 'ETH-4') | (df['Sample'] == 'IAEA-C2') 
@@ -1166,7 +1184,8 @@ def interactive_plots(df):
 
 	# --- D47_all_interactive ----
 
-	output_file(filename=Path.cwd().parents[0] / 'plots' / f'D47_all_interactive_{proj}.html', title='D47_all_interactive')
+	# output_file(filename=Path.cwd().parents[0] / 'plots' / f'D47_all_interactive_{proj}.html', title='D47_all_interactive')
+	output_file(filename=plot_path + '/D47_all_interactive_.html', title='D47_all_interactive')
 
 	sample_names = pd.unique(df['Sample'])
 	TOOLTIPS = [("Sample name", "@Sample"), ("UID", "@UID"), ("d13C", "@d13C_VPDB"), ("d18O_mineral", "@d18O_VPDB_mineral")]
@@ -1178,7 +1197,9 @@ def interactive_plots(df):
 
 	# --- D47_raw_nominal_interactive ---
 
-	output_file(filename=Path.cwd().parents[0] / 'plots' /f"D47_raw_nominal_interactive_{proj}.html", title="D47_raw_nominal_interactive")
+	# output_file(filename=Path.cwd().parents[0] / 'plots' /f"D47_raw_nominal_interactive_{proj}.html", title="D47_raw_nominal_interactive")
+	output_file(filename=plot_path +"/D47_raw_nominal_interactive.html", title="D47_raw_nominal_interactive")
+
 	TOOLTIPS = [("Sample name", "@Sample"), ("UID", "@UID"), ("d13C", "@d13C_VPDB"), ("d18O_mineral", "@d18O_VPDB_mineral"), ("Vial_Location", "@Vial_Location")]
 	std_tools = ['pan,wheel_zoom,box_zoom,reset,hover']
 

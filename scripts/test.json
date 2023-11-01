@@ -1,0 +1,9 @@
+{
+  "blimp_run_name": "test",
+  "sessions": {
+    "2018": "/Users/JuliaWilcots/Documents/EMPRESS/clumped-stuff/blimp-Oct23/proj/empress-2018",
+    "2020": "/Users/JuliaWilcots/Documents/EMPRESS/clumped-stuff/blimp-Oct23/proj/empress-2020"
+  },
+  "params": "/Users/JuliaWilcots/Documents/EMPRESS/clumped-stuff/blimp-multi/params.xlsx",
+  "output_path": "/Users/JuliaWilcots/Documents/EMPRESS/clumped-stuff/blimp-multi"
+}
