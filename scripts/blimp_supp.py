@@ -48,7 +48,8 @@ with open(json_file.strip(' ')) as f:
 
 params = blimp_data["params"] # will be the path to a params.xlsx file
 output_name = blimp_data["blimp_run_name"]
-output_path = blimp_data["output_path"] 
+output_path = blimp_data["output_path"]
+datasets = blimp_data["sessions"] # a dictionary of collections of runs you want to process separately
 
 # # User drags params file into terminal to load it.
 # def define_params_location():
@@ -192,7 +193,7 @@ def calc_residual(df_analy):
 
 # ---- READ AND CORRECT DATA ----
 
-def read_Nu_data(data_file, file_number, current_sample, folder_name, run_type):
+def read_Nu_data(dataset_folder_path, data_file, file_number, current_sample, folder_name, run_type):
 	'''
 	PURPOSE: Read in raw voltages from Nu data file (e.g., Data_13553 ETH-1.txt), zero correct, calculate R values, and calculate little deltas; remove bad cycles and use batch data to remove bad replicates
 	INPUTS: Path to Nu data file (.txt); analysis UID (e.g., 10460); sample name (e.g., ETH-1); and run type ('standard' or 'clumped')
@@ -332,14 +333,16 @@ def read_Nu_data(data_file, file_number, current_sample, folder_name, run_type):
 
 	rmv_analyses = [] # analysis to be removed
 	
-	this_path = Path.cwd() / 'raw_data' / folder_name
+	# this_path = Path.cwd() / 'raw_data' / folder_name
+	this_path = dataset_folder_path
+	# find ...../raw_data/[session folder] I CALL THIS "folder_path"
 
 	# -- Find bad replicates -- 
 	# This goes through batch summary data and checks values against thresholds from params.xlsx
 	for i in os.listdir(this_path):
 		if 'Batch Results.csv' in i and 'fail' not in os.listdir(this_path): # checks for and reads results summary file 
 		
-			summ_file = Path.cwd() / 'raw_data' / folder_name / i # i = e.g., 20210505 clumped dolomite apatite calibration 5 NTA Batch Results.csv
+			summ_file = dataset_folder_path + '/' + i # i = e.g., 20210505 clumped dolomite apatite calibration 5 NTA Batch Results.csv
 			df_results_summ = pd.read_csv(summ_file, encoding = 'latin1', skiprows = 3, header = [0,1])
 			df_results_summ.columns = df_results_summ.columns.map('_'.join).str.strip()	# fixes weird headers of Nu Summary files
 
@@ -432,7 +435,7 @@ def fix_names(df, results_path):
 	# df.to_csv(dir_path_fixed, index = False)
 	df.to_csv(results_raw_deltas, index=False)
 
-	return raw_deltas
+	return df
 
 def run_D47crunch(run_type, raw_deltas_file, results_path):
 	''' 
@@ -891,7 +894,7 @@ def to_earthchem(df_a, results_path):
 
 #df = pd.read_csv(Path.cwd().parents[0] / 'proj' / proj / / f'analyses_{proj}.csv')
 
-def plot_ETH_D47(repeatability_all, df):
+def plot_ETH_D47(repeatability_all, df, plot_path):
 
 	from matplotlib.lines import Line2D
 
@@ -924,7 +927,7 @@ def plot_ETH_D47(repeatability_all, df):
 	plt.xlabel('D47 I-CDES')
 	#plt.legend()
 	#plt.tight_layout()
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'anchor_D47.png')
+	plt.savefig(plot_path + '/' + 'anchor_D47.png')
 	plt.close()
 
 	# ---- PLOT OFFSET OF ANCHORS FROM NOMINAL ----- 
@@ -953,7 +956,7 @@ def plot_ETH_D47(repeatability_all, df):
 	plt.xlabel('UID')
 	plt.ylabel('D47 - Nominal')
 	ax.legend(handles = leg_elem)
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'anchor_D47_offset.png')
+	plt.savefig(plot_path + '/' + 'anchor_D47_offset.png')
 	plt.close()
 
 	# ---- PLOT D47RAW OFFSET FROM NOMINAL ---- 
@@ -973,7 +976,7 @@ def plot_ETH_D47(repeatability_all, df):
 	plt.xlabel('UID')
 	plt.ylabel('D47raw - Nominal')
 	ax.legend(handles = leg_elem[0:5])
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'anchor_D47raw_offset.png')
+	plt.savefig(plot_path + '/' + 'anchor_D47raw_offset.png')
 	plt.close()
 
 	# ------ PLOT D47 ALL --------
@@ -988,7 +991,7 @@ def plot_ETH_D47(repeatability_all, df):
 			ax.scatter(df.D47.iloc[i], df.Sample.iloc[i], color = 'gray', edgecolor = 'black', linewidth = .75, zorder = 9, label = 'Anchor')
 	plt.xlabel('D47 I-CDES')	
 	#plt.tight_layout()
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'all_D47.png')
+	plt.savefig(plot_path + '/' + 'all_D47.png')
 
 	plt.close()
 
@@ -1004,7 +1007,7 @@ def plot_ETH_D47(repeatability_all, df):
 	plt.xlabel('d13C VPDB offset from median')
 	plt.grid(visible=True, which='major', color='gray', linestyle='--', zorder = 0, alpha = 0.4)	
 	#plt.tight_layout()
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'd13C.png')
+	plt.savefig(plot_path + '/' + 'd13C.png')
 
 	d18O_median = df.groupby('Sample')['d18O_VSMOW'].median()
 
@@ -1015,10 +1018,10 @@ def plot_ETH_D47(repeatability_all, df):
 	plt.xlabel('d18O VSMOW offset from median')
 	plt.grid(visible=True, which='major', color='gray', linestyle='--', zorder = 0, alpha = 0.4)
 	#plt.tight_layout()
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'd18O.png')
+	plt.savefig(plot_path + '/' + 'd18O.png')
 	plt.close()
 
-def cdv_plots(df,results_path):
+def cdv_plots(df,results_path, plot_path):
 
 	# file = Path.cwd().parents[0] / 'results' / f'rmv_analyses_{proj}.csv'
 	# df_rmv = pd.read_csv(file, encoding = 'latin1') # sure we want to be resetting???
@@ -1105,7 +1108,7 @@ def cdv_plots(df,results_path):
 	plt.scatter(df.UID.iloc[i], df.D49raw.iloc[i], color = pal[1], edgecolor = 'black', linewidth = .75, zorder = 9, label = 'Anchor') # dummy for legend
 
 	plt.legend()
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'cdv.png')
+	plt.savefig(plot_path + '/' + 'cdv.png')
 	plt.close()
 
 	# ---- IAEA-C1 PLOT ----
@@ -1118,10 +1121,10 @@ def cdv_plots(df,results_path):
 	plt.ylabel('D47')
 	plt.title('IAEA-C1 D47')
 	#plt.tight_layout()
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'IAEA-C1_reprod.png')
+	plt.savefig(plot_path + '/' + 'IAEA-C1_reprod.png')
 	plt.close()
 
-def d47_D47_plot(df):
+def d47_D47_plot(df, plot_path):
 
 	df_anchor = df.loc[(df['Sample'] == 'ETH-1') | (df['Sample'] == 'ETH-2') | 
 	(df['Sample'] == 'ETH-3') | (df['Sample'] == 'ETH-4') | (df['Sample'] == 'IAEA-C2') 
@@ -1134,7 +1137,7 @@ def d47_D47_plot(df):
 	plt.xlabel('d47')
 	plt.ylabel('D47')
 	#plt.tight_layout()
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'd47_D47.png')
+	plt.savefig(plot_path + '/' + 'd47_D47.png')
 	plt.close()
 
 def interactive_plots(df,plot_path):
@@ -1220,7 +1223,7 @@ def interactive_plots(df,plot_path):
 		#ax.scatter(df_anchor['UID'][j], df_anchor['D47raw'][j] - nom_D47, color = col, alpha = 1, edgecolor = 'black')
 
 
-def joy_plot():
+def joy_plot(plot_path):
 
 	sns.set_theme(style="white", rc={"axes.facecolor": (0, 0, 0, 0)})
 	sns.set_context()
@@ -1261,7 +1264,7 @@ def joy_plot():
 	g.despine(bottom=True, left=True)
 	plt.xlabel('Uncorrected ETH-3 d47')
 	plt.xlim(15, 17)
-	plt.savefig(Path.cwd().parents[0] / 'plots' / 'ridgeplot_eth3.png')
+	plt.savefig(plot_path + '/' + 'ridgeplot_eth3.png')
 	plt.style.use('default')  
 
 	plt.close()
