@@ -4,11 +4,18 @@ Bergmann Lab Isotopic Measurement Pipeline for analysis of D47 data from a Nu Pe
 This repository contains scripts to reduce raw voltage data from a Nu Perspective IRMS, calculate isotopic compositions using Mathieu Daeron's ['D47crunch' library](https://github.com/mdaeron/D47crunch), and create a suite of tables and figures that summarize data.
 
 ## Requirements
+NOW YOU ALSO NEED THE json PACKAGE, WHICH ISN'T IN THE CONDA env FILE YET -jkw
+
 It is strongly recommended to run blimp within a conda environment using the provided 'environment.yml' file (instructions below). It's likely that you used Anaconda or Miniconda when you originally installed Python, but if not, install Miniconda here https://docs.conda.io/en/latest/miniconda.html.
 
 If you don't use the conda environment, you will need pandas, numpy, pathlib, matplotlib, os, seaborn, and [D47crunch](https://github.com/mdaeron/D47crunch) (can be installed on the command line with 'pip install D47crunch').
 
 Blimp has been tested on Nu Stable versions 1.69.5, 1.71.2, and 1.71.5. For now, blimp is only reliably usable for data from the Bergmann Lab Nu Perspective IRMS.
+
+## NEW way to use blimp:
+Paths to all relevant directories are now stored in a .json file that you should create for each separate run of blimp. My hope is that, by replicating just the .json file, a user can maintain just ONE params file for their entire suite of samples and only has to keep results folders (from the mass spec computer) in ONE place on their computer.  
+
+Running blimp now requires dragging and dropping the .json file into the terminal (twice, because the code is not perfect) and there is no more dependency to be in any specific folder when you run blimp -- the code pulls files and saves files to different places that you specify in the .json file.
 
 ## Using blimp
 
